@@ -8,6 +8,12 @@ namespace SmartStore.Api.Controllers;
 [ApiController, Route("api/sales")]
 public sealed class SalesController(StoreDbContext db) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> List(CancellationToken ct, int page = 1, int pageSize = 20)
+    {
+        if (page < 1 || page > 1000000 || pageSize < 1 || pageSize > 100) return BadRequest();
+        return Ok(new { page, pageSize, total = await db.SaleOrders.CountAsync(ct), items = await db.SaleOrders.AsNoTracking().Include(x => x.Items).OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct) });
+    }
     [HttpGet("{id:guid}")] public async Task<IActionResult> Get(Guid id, CancellationToken ct) => await db.SaleOrders.AsNoTracking().Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == id, ct) is { } order ? Ok(order) : NotFound();
     [HttpPost]
     public async Task<IActionResult> Create(SaleRequest r, CancellationToken ct)

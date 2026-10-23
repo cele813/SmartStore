@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SmartStore — your catalog, inventory and sales in one workspace.">
+  <title>SmartStore · Store workspace</title>
+  <link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
+</head>
+<body>
+  <main id="auth-view" class="auth-layout">
+    <section class="auth-story">
+      <a class="brand" href="/" aria-label="SmartStore home"><span class="brand-icon">S</span> SmartStore<span class="brand-dot">.</span></a>
+      <div class="story-copy"><span class="eyebrow">A LITTLE MORE ORDER. A LOT MORE POSSIBILITY.</span><h1>Your store.<br>Your next chapter.</h1><p>Keep your products, stock and sales working together. One clear workspace for the everyday business of running a store.</p>
+      <div class="story-demo" aria-hidden="true"><div class="demo-top"><span class="mini-icon">↗</span><span>Everything in its place</span><span class="status-dot"></span></div><div class="demo-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="demo-bottom"><span>CATALOG</span><span>INVENTORY</span><span>SALES</span></div></div></div>
+      <p class="story-footer">Less busywork. More room to grow.</p>
+    </section>
+    <section class="auth-panel">
+      <div class="auth-card"><span class="eyebrow dark">YOUR STORE, CONNECTED</span><h2 id="auth-title">Welcome back.</h2><p id="auth-subtitle" class="muted">Sign in to pick up where you left off.</p>
+        <div class="auth-tabs" role="group" aria-label="Account action"><button type="button" id="login-tab" class="selected">Sign in</button><button type="button" id="register-tab">Create account</button></div>
+        <form id="auth-form">
+          <label id="name-field" hidden>Full name<input id="display-name" name="displayName" autocomplete="name" minlength="2" maxlength="100" placeholder="Alex Morgan"></label>
+          <label>Email address<input name="email" type="email" autocomplete="username" maxlength="254" placeholder="you@example.com" required></label>
+          <label>Password<input id="password" name="password" type="password" autocomplete="current-password" maxlength="128" placeholder="Enter your password" required></label>
+          <p id="password-help" class="hint" hidden>At least 8 characters, with uppercase, lowercase and a number.</p>
+          <p id="auth-error" class="error" role="alert" hidden></p>
+          <button class="primary full" id="auth-submit" type="submit">Sign in <span aria-hidden="true">↗</span></button>
+        </form>
+        <p class="auth-note">A shared workspace for your store team.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="app-view" class="app-layout" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="/"> <span class="brand-icon">S</span> SmartStore<span class="brand-dot">.</span></a>
+      <span class="nav-caption">WORKSPACE</span>
+      <nav aria-label="Workspace"><button data-view="overview" class="nav-item active"><span>◫</span> Overview</button><button data-view="products" class="nav-item"><span>▦</span> Products</button><button data-view="categories" class="nav-item"><span>▤</span> Categories</button><button data-view="suppliers" class="nav-item"><span>◇</span> Suppliers</button><button data-view="sales" class="nav-item"><span>↗</span> Sales</button></nav>
+      <div class="sidebar-note"><span class="status-dot"></span> One store. All together.<p>Your daily operations, organized.</p></div>
+      <div class="account"><span class="avatar" id="avatar">S</span><div><strong id="user-name"></strong><small id="user-email"></small></div></div><button id="logout" class="logout">Sign out ↗</button>
+    </aside>
+    <main class="workspace">
+      <header class="topbar"><span>Workspace <span class="slash">/</span> <strong id="breadcrumb">Overview</strong></span><span class="topbar-right"><span class="status-dot"></span> SmartStore</span></header>
+      <div class="page-content"><div class="page-heading"><div><span class="eyebrow dark">STORE MANAGEMENT</span><h1 id="page-title">A clear view of your store.</h1><p id="page-description" class="muted">A good day starts with everything in one place.</p></div><button id="refresh" class="secondary">↻ Refresh</button></div>
+        <p id="page-error" class="error banner" role="alert" hidden></p>
+        <section id="overview-section">
+          <div class="stat-grid"><article class="stat-card"><span>Products in catalog</span><strong id="stat-products">—</strong><small>Your product range</small></article><article class="stat-card"><span>Categories</span><strong id="stat-categories">—</strong><small>Everything organized</small></article><article class="stat-card"><span>Suppliers</span><strong id="stat-suppliers">—</strong><small>Your business connections</small></article><article class="stat-card accent"><span>Sales orders</span><strong id="stat-sales">—</strong><small>Every sale accounted for</small></article></div>
+          <div class="overview-grid"><article class="panel welcome-panel"><span class="eyebrow dark">MAKE IT A PRODUCTIVE DAY</span><h2>From shelf to sale.<br>Stay on top of it.</h2><p class="muted">Add your catalog, receive stock and record a sale. Your inventory updates as you go.</p><button class="primary" data-view="products">Open products ↗</button></article><article class="panel"><div class="panel-heading"><h2>Recent sales</h2><button class="text-button" data-view="sales">View all ↗</button></div><div id="recent-sales"></div></article></div>
+        </section>
+        <section id="products-section" hidden><div class="panel"><div class="panel-heading"><div><h2>Product catalog</h2><p class="muted small">Your products and current stock levels.</p></div><button class="primary" id="add-product">+ Add product</button></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Price (VND)</th><th>In stock</th><th>Actions</th></tr></thead><tbody id="products-body"></tbody></table></div><div class="pagination"><span id="product-page-info"></span><div><button class="secondary compact" id="previous-products">← Previous</button><button class="secondary compact" id="next-products">Next →</button></div></div></div></section>
+        <section id="categories-section" hidden><div class="panel"><div class="panel-heading"><div><h2>Categories</h2><p class="muted small">Keep your catalog easy to navigate.</p></div><button class="primary" id="add-category">+ Add category</button></div><div id="categories-list" class="record-list"></div></div></section>
+        <section id="suppliers-section" hidden><div class="panel"><div class="panel-heading"><div><h2>Suppliers</h2><p class="muted small">The people behind your products.</p></div><button class="primary" id="add-supplier">+ Add supplier</button></div><div id="suppliers-list" class="record-list"></div></div></section>
+        <section id="sales-section" hidden><div class="panel"><div class="panel-heading"><div><h2>Sales orders</h2><p class="muted small">Record a sale and let stock take care of itself.</p></div><button class="primary" id="add-sale">+ New sale</button></div><div class="table-wrap"><table><thead><tr><th>Order</th><th>Date</th><th>Items</th><th>Total (VND)</th><th></th></tr></thead><tbody id="sales-body"></tbody></table></div><div class="pagination"><span id="sale-page-info"></span><div><button class="secondary compact" id="previous-sales">← Previous</button><button class="secondary compact" id="next-sales">Next →</button></div></div></div></section>
+      </div><footer class="workspace-footer">SmartStore <span>Built for the everyday.</span></footer>
+    </main>
+  </div>
+  <dialog id="editor-dialog"><form id="editor-form"><div class="dialog-heading"><h2 id="editor-title"></h2><button type="button" class="close-dialog" aria-label="Close dialog">×</button></div><div id="editor-fields"></div><p id="editor-error" class="error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="secondary close-dialog">Cancel</button><button class="primary" type="submit" id="editor-submit">Save</button></div></form></dialog>
+  <dialog id="detail-dialog"><div class="dialog-heading"><h2 id="detail-title"></h2><button type="button" class="close-dialog" aria-label="Close dialog">×</button></div><div id="detail-content"></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

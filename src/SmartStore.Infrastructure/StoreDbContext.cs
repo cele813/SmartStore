@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using SmartStore.Infrastructure.Auth;
 using SmartStore.Domain;
 namespace SmartStore.Infrastructure;
 
-public sealed class StoreDbContext(DbContextOptions<StoreDbContext> options) : DbContext(options)
+public sealed class StoreDbContext(DbContextOptions<StoreDbContext> options) : IdentityDbContext<StoreUser>(options)
 {
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
@@ -12,6 +14,8 @@ public sealed class StoreDbContext(DbContextOptions<StoreDbContext> options) : D
     public DbSet<SaleOrderItem> SaleOrderItems => Set<SaleOrderItem>();
     protected override void OnModelCreating(ModelBuilder b)
     {
+        base.OnModelCreating(b);
+        b.Entity<StoreUser>().Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
         // IDs are assigned by the application. New children added to tracked
         // aggregates must be inserted even though their Guid is already set.
         b.Entity<Category>().Property(x => x.Id).ValueGeneratedNever();

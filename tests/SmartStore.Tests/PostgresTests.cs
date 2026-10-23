@@ -8,6 +8,7 @@ using SmartStore.Infrastructure;
 using Xunit;
 namespace SmartStore.Tests;
 
+[Collection("PostgreSQL")]
 public class PostgresTests
 {
     [Fact, Trait("Category", "Integration")]
@@ -20,6 +21,7 @@ public class PostgresTests
         await db.Database.MigrateAsync();
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
+        await TestAuth.Register(client);
         var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CategoryRequest($"Test-{Guid.NewGuid():N}"));
         Assert.Equal(HttpStatusCode.Created, categoryResponse.StatusCode);
         var category = (await categoryResponse.Content.ReadFromJsonAsync<Category>())!;
@@ -46,5 +48,9 @@ public class PostgresTests
         await using var verification = new StoreDbContext(options);
         Assert.Equal(6, (await verification.Products.SingleAsync(x => x.Id == product.Id)).Stock);
         Assert.Equal(3, await verification.StockMovements.CountAsync(x => x.ProductId == product.Id));
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/products/{product.Id}", request with { Name = "Updated coffee", Price = 30000 })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.DeleteAsync($"/api/products/{product.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.DeleteAsync($"/api/categories/{category.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/sales?page=1&pageSize=10")).StatusCode);
     }
 }

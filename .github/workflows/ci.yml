@@ -16,6 +16,7 @@ jobs:
           sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE ROLE smartstore LOGIN PASSWORD 'ci-only-password';"
           sudo -u postgres createdb --owner=smartstore smartstore_test
           pg_isready -h localhost -p 5432
+      - run: node --check src/SmartStore.Api/wwwroot/app.js
       - run: dotnet tool restore
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release
