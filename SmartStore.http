@@ -1,0 +1,32 @@
+@baseUrl = http://localhost:5080
+@categoryId = 00000000-0000-0000-0000-000000000000
+@productId = 00000000-0000-0000-0000-000000000000
+
+GET {{baseUrl}}/health/live
+
+### Create category, then copy returned ID to categoryId
+POST {{baseUrl}}/api/categories
+Content-Type: application/json
+
+{ "name": "Đồ uống" }
+
+### Create product, then copy returned ID to productId
+POST {{baseUrl}}/api/products
+Content-Type: application/json
+
+{ "sku": "SP001", "name": "Cà phê", "price": 25000, "categoryId": "{{categoryId}}", "supplierId": null }
+
+### Receive stock
+POST {{baseUrl}}/api/products/{{productId}}/stock-adjustments
+Content-Type: application/json
+
+{ "quantity": 100, "reason": "Nhập kho ban đầu" }
+
+### Create sale
+POST {{baseUrl}}/api/sales
+Content-Type: application/json
+
+{ "items": [ { "productId": "{{productId}}", "quantity": 2 } ] }
+
+### Product list
+GET {{baseUrl}}/api/products?page=1&pageSize=20
