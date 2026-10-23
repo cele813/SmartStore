@@ -25,7 +25,6 @@ namespace SmartStore.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("SmartStore.Domain.Category", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
@@ -44,7 +43,6 @@ namespace SmartStore.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("SmartStore.Domain.Product", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("CategoryId")
@@ -96,7 +94,6 @@ namespace SmartStore.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("SmartStore.Domain.SaleOrder", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -110,7 +107,6 @@ namespace SmartStore.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("SmartStore.Domain.SaleOrderItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("ProductId")
@@ -143,7 +139,6 @@ namespace SmartStore.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("SmartStore.Domain.StockMovement", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -173,7 +168,6 @@ namespace SmartStore.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("SmartStore.Domain.Supplier", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Email")

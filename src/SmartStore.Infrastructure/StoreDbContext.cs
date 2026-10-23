@@ -12,6 +12,14 @@ public sealed class StoreDbContext(DbContextOptions<StoreDbContext> options) : D
     public DbSet<SaleOrderItem> SaleOrderItems => Set<SaleOrderItem>();
     protected override void OnModelCreating(ModelBuilder b)
     {
+        // IDs are assigned by the application. New children added to tracked
+        // aggregates must be inserted even though their Guid is already set.
+        b.Entity<Category>().Property(x => x.Id).ValueGeneratedNever();
+        b.Entity<Supplier>().Property(x => x.Id).ValueGeneratedNever();
+        b.Entity<Product>().Property(x => x.Id).ValueGeneratedNever();
+        b.Entity<StockMovement>().Property(x => x.Id).ValueGeneratedNever();
+        b.Entity<SaleOrder>().Property(x => x.Id).ValueGeneratedNever();
+        b.Entity<SaleOrderItem>().Property(x => x.Id).ValueGeneratedNever();
         b.Entity<Category>().Property(x => x.Name).HasMaxLength(100).IsRequired();
         b.Entity<Category>().HasIndex(x => x.Name).IsUnique();
         b.Entity<Supplier>().Property(x => x.Name).HasMaxLength(200).IsRequired();
