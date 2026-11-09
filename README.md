@@ -86,6 +86,8 @@ dotnet run --project src/SmartStore.Api --launch-profile http -- grant-admin adm
 
 The command uses the same database configuration as the web app. Sign out and sign in again after promotion to refresh your session.
 
+Admins can open **Accounts** to view users, create Staff accounts, edit display names, and delete Staff accounts. Email and role are read-only when editing. Admin accounts are protected from deletion.
+
 The browser uses an HttpOnly session cookie. For API clients, first GET `/api/auth/csrf`, preserve the returned cookies, and send its `token` in the `X-CSRF-TOKEN` header on POST/PUT/DELETE requests. Register at `/api/auth/register` or sign in at `/api/auth/login`; fetch a fresh CSRF token after sign-in/sign-out. `/api/auth/me` returns the current user and POST `/api/auth/logout` ends the session.
 
 Local HTTP is supported by the Development launch profile. Other environments require HTTPS for authentication cookies. Sales do not yet use idempotency keys; check the order list before retrying a submission after a timeout.

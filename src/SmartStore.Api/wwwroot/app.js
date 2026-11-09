@@ -1,12 +1,12 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const state = { user: null, csrf: null, mode: 'login', view: 'overview', page: 1, salesPage: 1, categories: [], suppliers: [], products: [], sales: [], saleProducts: [], totalProducts: 0, totalSales: 0, editor: null, loading: false };
+const state = { user: null, csrf: null, mode: 'login', view: 'overview', page: 1, salesPage: 1, accountsPage: 1, accounts: [], categories: [], suppliers: [], products: [], sales: [], saleProducts: [], totalProducts: 0, totalSales: 0, editor: null, loading: false };
 const isAdmin = () => state.user?.role === 'Admin';
 const money = value => new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
 const date = value => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const empty = message => `<div class="empty">${escapeHtml(message)}</div>`;
-const titles = { overview: ['A clear view of your store.', 'A good day starts with everything in one place.'], products: ['A place for every product.', 'Manage your catalog and keep inventory in view.'], categories: ['Good things, well organized.', 'Give every product a place in your catalog.'], suppliers: ['Better business, together.', 'Keep your supplier details close at hand.'], sales: ['Every sale, accounted for.', 'Record orders and keep your stock in sync.'] };
+const titles = { overview: ['A clear view of your store.', 'A good day starts with everything in one place.'], products: ['A place for every product.', 'Manage your catalog and keep inventory in view.'], categories: ['Good things, well organized.', 'Give every product a place in your catalog.'], suppliers: ['Better business, together.', 'Keep your supplier details close at hand.'], sales: ['Every sale, accounted for.', 'Record orders and keep your stock in sync.'], accounts: ['Accounts in your store.', 'Create Staff accounts and manage display names.'] };
 
 async function refreshCsrf() {
     const response = await fetch('/api/auth/csrf', { credentials: 'same-origin', cache: 'no-store' });
@@ -54,13 +54,22 @@ function showWorkspace() {
     window.scrollTo(0, 0);
     $('auth-view').hidden = true; $('app-view').hidden = false;
     $('user-name').textContent = state.user.displayName; $('user-email').textContent = `${state.user.email} · ${state.user.role}`;
-    for (const id of ['add-product', 'add-category', 'add-supplier']) $(id).hidden = !isAdmin();
+    for (const id of ['add-product', 'add-category', 'add-supplier', 'accounts-nav']) $(id).hidden = !isAdmin();
+    state.accountsPage = 1;
+    state.accounts = [];
+    $('accounts-body').replaceChildren();
+    if (state.view === 'accounts') navigate('overview');
     $('avatar').textContent = state.user.displayName.slice(0, 1).toUpperCase();
 }
 async function load() {
     if (state.loading) return;
+    const view = state.view;
     state.loading = true; $('refresh').disabled = true; $('page-error').hidden = true;
     try {
+        if (view === 'accounts') {
+            await loadAccounts();
+            return;
+        }
         const [categories, suppliers, products, sales] = await Promise.all([
             api('/api/categories'), api('/api/suppliers'), api(`/api/products?page=${state.page}&pageSize=10`), api(`/api/sales?page=${state.salesPage}&pageSize=10`)
         ]);
@@ -69,9 +78,33 @@ async function load() {
         state.sales = sales.items; state.totalSales = sales.total;
         render();
     } catch (error) { errorAt('page-error', error); }
-    finally { state.loading = false; $('refresh').disabled = false; }
+    finally {
+        state.loading = false; $('refresh').disabled = false;
+        if (view !== 'accounts' && state.view === 'accounts' && isAdmin()) await load();
+    }
+}
+async function loadAccounts() {
+    const page = state.accountsPage;
+    const { items, hasMore } = await api(`/api/accounts?page=${page}`);
+    if (!isAdmin()) return;
+
+    if (!items.length && page > 1) {
+        state.accountsPage--;
+        return loadAccounts();
+    }
+
+    state.accounts = items;
+    $('accounts-body').innerHTML = items.length ? items.map(account => {
+        const id = escapeHtml(account.id);
+        const remove = account.role === 'Staff' ? `<button class="danger" data-action="delete-account" data-id="${id}">Delete</button>` : '';
+        return `<tr><td>${escapeHtml(account.displayName)}</td><td>${escapeHtml(account.email)}</td><td>${escapeHtml(account.role)}</td><td><div class="row-actions"><button data-action="edit-account" data-id="${id}">Edit</button>${remove}</div></td></tr>`;
+    }).join('') : '<tr><td colspan="4">No accounts found.</td></tr>';
+    $('accounts-page-info').textContent = `Page ${page}`;
+    $('previous-accounts').disabled = page <= 1;
+    $('next-accounts').disabled = !hasMore;
 }
 function navigate(view) {
+    if (view === 'accounts' && !isAdmin()) return;
     state.view = view;
     for (const name of Object.keys(titles)) $(`${name}-section`).hidden = name !== view;
     document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.view === view));
@@ -98,7 +131,7 @@ function select(label, name, items, selected, optional = false) {
 function openEditor(kind, item) {
     $('editor-form').reset(); $('editor-error').hidden = true; $('editor-submit').disabled = false;
     state.editor = { kind, item };
-    const noun = { product: 'product', category: 'category', supplier: 'supplier', stock: 'stock adjustment', sale: 'sale' }[kind];
+    const noun = { product: 'product', category: 'category', supplier: 'supplier', stock: 'stock adjustment', sale: 'sale', account: 'account' }[kind];
     $('editor-title').textContent = kind === 'stock' ? `Adjust stock · ${item.name}` : `${item ? 'Edit' : 'New'} ${noun}`;
     $('editor-submit').textContent = kind === 'sale' ? 'Complete sale' : 'Save';
     let fields = '';
@@ -107,6 +140,14 @@ function openEditor(kind, item) {
     if (kind === 'product') fields = field('Product name', 'name', item?.name, 'required maxlength="200"') + '<div class="form-grid">' + field('SKU', 'sku', item?.sku, 'required maxlength="50"') + field('Price (VND)', 'price', item?.price ?? 0, 'type="number" min="0" max="9999999999999999.99" step="0.01" required') + '</div>' + select('Category', 'categoryId', state.categories, item?.categoryId) + select('Supplier', 'supplierId', state.suppliers, item?.supplierId, true) + '<p class="hint">New products start with zero stock. Use Stock to receive inventory.</p>';
     if (kind === 'stock') fields = `<p class="muted">Current stock: ${item.stock}. Use a positive quantity to receive stock, or a negative quantity to deduct it.</p>` + field('Quantity change', 'quantity', '', 'type="number" step="1" min="-2147483647" max="2147483647" required') + field('Reason', 'reason', '', 'required maxlength="300" placeholder="e.g. Initial stock receipt"');
     if (kind === 'sale') fields = '<p class="muted small">Choose products and quantities. Prices are taken from your catalog.</p><div id="sale-lines"></div><button type="button" class="secondary compact" id="add-sale-line">+ Add line</button><div class="sale-total"><span>Total (VND)</span><span id="sale-total">0</span></div>';
+    if (kind === 'account') {
+        fields = field('Display name', 'displayName', item?.displayName, 'required minlength="2" maxlength="100"');
+        fields += item
+            ? field('Email', 'email', item.email, 'type="email" disabled') + field('Role', 'role', item.role, 'disabled')
+            : field('Email', 'email', '', 'type="email" required maxlength="254"')
+                + field('Password', 'password', '', 'type="password" autocomplete="new-password" required minlength="8" maxlength="128"')
+                + '<p class="hint">New accounts have the Staff role.</p>';
+    }
     $('editor-fields').innerHTML = fields;
     if (kind === 'sale') { addSaleLine(); $('add-sale-line').addEventListener('click', addSaleLine); }
     $('editor-dialog').showModal();
@@ -169,7 +210,8 @@ $('editor-form').addEventListener('submit', async event => {
         if (kind === 'product') { path = '/api/products'; body.price = Number(data.price); body.supplierId = data.supplierId || null; }
         if (kind === 'category') path = '/api/categories';
         if (kind === 'supplier') { path = '/api/suppliers'; body.email = data.email || null; body.phone = data.phone || null; }
-        if (item) path += `/${item.id}`;
+        if (kind === 'account') path = '/api/accounts';
+        if (item) path += `/${encodeURIComponent(item.id)}`;
         if (kind === 'stock') {
             path = `/api/products/${item.id}/stock-adjustments`; method = 'POST'; body = { quantity: Number(data.quantity), reason: data.reason };
             if (!body.quantity) throw new Error('Quantity must not be zero.');
@@ -179,13 +221,23 @@ $('editor-form').addEventListener('submit', async event => {
             body = { items: [...document.querySelectorAll('.sale-line')].map(row => ({ productId: row.querySelector('select').value, quantity: Number(row.querySelector('input').value) })) };
             if (new Set(body.items.map(line => line.productId)).size !== body.items.length) throw new Error('Each product can appear only once in an order.');
         }
-        await api(path, { method, body }); $('editor-dialog').close(); toast(kind === 'sale' ? 'Sale recorded. Inventory updated.' : 'Saved successfully.'); await load();
+        await api(path, { method, body });
+        if (kind === 'account' && item?.id === state.user?.id) {
+            state.user.displayName = body.displayName.trim();
+            $('user-name').textContent = state.user.displayName;
+            $('avatar').textContent = state.user.displayName.slice(0, 1).toUpperCase();
+        }
+        $('editor-dialog').close(); toast(kind === 'sale' ? 'Sale recorded. Inventory updated.' : 'Saved successfully.'); await load();
     } catch (error) { errorAt('editor-error', error); }
     finally { $('editor-submit').disabled = false; }
 });
 document.addEventListener('click', async event => {
     const navigation = event.target.closest('[data-view]');
-    if (navigation) { navigate(navigation.dataset.view); return; }
+    if (navigation) {
+        navigate(navigation.dataset.view);
+        if (state.view === 'accounts' && isAdmin()) await load();
+        return;
+    }
     if (event.target.closest('.close-dialog')) { event.target.closest('dialog').close(); return; }
     const action = event.target.closest('[data-action]');
     if (!action) return;
@@ -195,14 +247,17 @@ document.addEventListener('click', async event => {
         if (verb === 'stock') return openEditor('stock', state.products.find(item => item.id === id));
         if (verb === 'history') return await detail('history', id);
         if (verb === 'sale') return await detail('sale', id);
-        const collections = { product: state.products, category: state.categories, supplier: state.suppliers };
+        const collections = { product: state.products, category: state.categories, supplier: state.suppliers, account: state.accounts };
         const item = collections[kind].find(item => item.id === id);
         if (verb === 'edit') return openEditor(kind, item);
         if (verb === 'delete') {
-            if (!confirm(`Delete "${item.name}"? Records linked to products or sales history cannot be deleted.`)) return;
+            const message = kind === 'account'
+                ? `Delete the account for ${item.email}?`
+                : `Delete "${item.name}"? Records linked to products or sales history cannot be deleted.`;
+            if (!confirm(message)) return;
             action.disabled = true;
-            const resources = { product: 'products', category: 'categories', supplier: 'suppliers' };
-            await api(`/api/${resources[kind]}/${id}`, { method: 'DELETE' }); toast('Record deleted.');
+            const resources = { product: 'products', category: 'categories', supplier: 'suppliers', account: 'accounts' };
+            await api(`/api/${resources[kind]}/${encodeURIComponent(id)}`, { method: 'DELETE' }); toast('Record deleted.');
             if (kind === 'product' && state.products.length === 1 && state.page > 1) state.page--;
             await load();
         }
@@ -216,8 +271,11 @@ $('add-category').addEventListener('click', () => openEditor('category'));
 $('add-supplier').addEventListener('click', () => openEditor('supplier'));
 $('add-product').addEventListener('click', () => { if (!state.categories.length) { toast('Create a category before adding a product.'); navigate('categories'); return; } openEditor('product'); });
 $('add-sale').addEventListener('click', newSale);
+$('add-account').addEventListener('click', () => openEditor('account'));
 $('previous-products').addEventListener('click', async () => { state.page--; await load(); });
 $('next-products').addEventListener('click', async () => { state.page++; await load(); });
+$('previous-accounts').addEventListener('click', async () => { if (state.loading) return; state.accountsPage--; await load(); });
+$('next-accounts').addEventListener('click', async () => { if (state.loading) return; state.accountsPage++; await load(); });
 $('previous-sales').addEventListener('click', async () => { state.salesPage--; await load(); });
 $('next-sales').addEventListener('click', async () => { state.salesPage++; await load(); });
 $('logout').addEventListener('click', async () => {

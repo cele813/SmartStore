@@ -40,6 +40,34 @@ public class PostgresTests
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(admin.Email, admin.Password))).StatusCode);
         await TestAuth.RefreshCsrf(client);
         Assert.Equal("Admin", (await client.GetFromJsonAsync<UserResponse>("/api/auth/me"))!.Role);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/accounts")).StatusCode);
+        var accounts = await client.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/accounts");
+        Assert.Contains(accounts.GetProperty("items").EnumerateArray(), account => account.GetProperty("email").GetString() == admin.Email);
+        var newAccount = new RegisterRequest("New Staff", $"new-{Guid.NewGuid():N}@example.com", "TestPass123!");
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync("/api/accounts", newAccount)).StatusCode);
+        var created = await client.PostAsJsonAsync("/api/accounts", newAccount);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var account = (await created.Content.ReadFromJsonAsync<UserResponse>())!;
+        Assert.Equal("Staff", account.Role);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/accounts", newAccount)).StatusCode);
+        var accountPath = $"/api/accounts/{account.Id}";
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(accountPath, new
+        {
+            displayName = "Renamed Staff", email = "changed@example.com", role = "Admin"
+        })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync(accountPath, new { displayName = "Renamed Staff" })).StatusCode);
+        var renamed = (await client.GetFromJsonAsync<UserResponse>(accountPath))!;
+        Assert.Equal(("Renamed Staff", newAccount.Email, "Staff"), (renamed.DisplayName, renamed.Email, renamed.Role));
+
+        using var newStaff = factory.CreateClient();
+        await TestAuth.RefreshCsrf(newStaff);
+        Assert.Equal(HttpStatusCode.OK, (await newStaff.PostAsJsonAsync("/api/auth/login", new LoginRequest(newAccount.Email, newAccount.Password))).StatusCode);
+        var adminAccount = (await client.GetFromJsonAsync<UserResponse>("/api/auth/me"))!;
+        Assert.Equal(HttpStatusCode.Conflict, (await client.DeleteAsync($"/api/accounts/{adminAccount.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync(accountPath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(accountPath)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await newStaff.GetAsync("/api/products")).StatusCode);
+
         var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CategoryRequest($"Test-{Guid.NewGuid():N}"));
         Assert.Equal(HttpStatusCode.Created, categoryResponse.StatusCode);
         var category = (await categoryResponse.Content.ReadFromJsonAsync<Category>())!;
