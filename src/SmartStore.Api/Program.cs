@@ -9,7 +9,14 @@ using SmartStore.Infrastructure;
 using SmartStore.Infrastructure.Auth;
 
 var grantAdmin = args is ["grant-admin", _];
-var builder = WebApplication.CreateBuilder(grantAdmin ? [] : args);
+var seedDemo = args is ["seed-demo"];
+var builder = WebApplication.CreateBuilder(grantAdmin || seedDemo ? [] : args);
+if (seedDemo && !builder.Environment.IsDevelopment())
+{
+    Console.Error.WriteLine("Demo seeding is available only in Development.");
+    Environment.ExitCode = 1;
+    return;
+}
 builder.Services.AddControllersWithViews(options => options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
@@ -54,11 +61,13 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 var app = builder.Build();
-if (grantAdmin)
+if (grantAdmin || seedDemo)
 {
     await using (var scope = app.Services.CreateAsyncScope())
     {
-        Environment.ExitCode = await AdminGrant.RunAsync(scope.ServiceProvider, args[1]);
+        Environment.ExitCode = seedDemo
+            ? await DemoSeed.RunAsync(scope.ServiceProvider)
+            : await AdminGrant.RunAsync(scope.ServiceProvider, args[1]);
     }
     await app.DisposeAsync();
     return;

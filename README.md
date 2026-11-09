@@ -52,7 +52,7 @@ dotnet ef database update --project src/SmartStore.Infrastructure --startup-proj
 dotnet run --project src/SmartStore.Api --launch-profile http
 ```
 
-Open **http://localhost:5080** and select **Create account**. Use a password with at least eight characters, including uppercase, lowercase, and a number. Registration signs you in automatically; there is no default account or seeded password.
+Open **http://localhost:5080** and select **Create account**. Use a password with at least eight characters, including uppercase, lowercase, and a number. Registration signs you in automatically; demo accounts are available through the optional command below.
 
 After granting Admin access as described below, start by creating a category, add a product, receive stock through **Stock**, then use **Sales → New sale** to record an order. Add supplier details as needed. Values are displayed in VND.
 
@@ -65,6 +65,16 @@ You can also set the connection string with `ConnectionStrings__Store`. Keep rea
 ## Authentication & API
 
 The application is a **single-store, shared staff workspace**: all accounts work with the same store data. Authentication is required for store endpoints. Registration is open and grants Staff access. Staff can view catalog, inventory history, and orders, and record sales. Admins can also create, edit, and delete catalog records and manually adjust stock.
+
+### Seed demo data
+
+After applying migrations, run this command against your local development database.
+
+```powershell
+dotnet run --project src/SmartStore.Api --launch-profile http -- seed-demo
+```
+
+The seed creates `admin@smartstore.example` (Admin), `staff@smartstore.example` (Staff), and three stocked products. Newly created demo accounts share the password `SmartStoreDemo123!`. Rerunning the command preserves existing accounts, products, and stock quantities. The command is available only in Development.
 
 ### Grant admin access
 
