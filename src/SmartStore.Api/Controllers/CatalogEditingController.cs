@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartStore.Application;
 using SmartStore.Infrastructure;
+using SmartStore.Infrastructure.Auth;
 namespace SmartStore.Api.Controllers;
 
-[ApiController, Route("api")]
+[ApiController, Authorize(Roles = StoreRoles.Admin), Route("api")]
 public sealed class CatalogEditingController(StoreDbContext db) : ControllerBase
 {
     [HttpPut("categories/{id:guid}")]

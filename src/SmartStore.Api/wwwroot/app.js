@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const state = { user: null, csrf: null, mode: 'login', view: 'overview', page: 1, salesPage: 1, categories: [], suppliers: [], products: [], sales: [], saleProducts: [], totalProducts: 0, totalSales: 0, editor: null, loading: false };
+const isAdmin = () => state.user?.role === 'Admin';
 const money = value => new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
 const date = value => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -29,7 +30,7 @@ async function api(path, options = {}) {
             showAuth();
         }
         const message = content?.errors ? Object.values(content.errors).flat().join(' ') : content?.title;
-        throw new Error(message || ({ 401: 'Please sign in to continue.', 400: 'The request was not accepted. Check the fields and try again.', 429: 'Too many attempts. Please wait a minute and try again.' }[response.status]) || 'Request failed. Please try again.');
+        throw new Error(message || ({ 401: 'Please sign in to continue.', 403: 'Only an administrator can perform this action.', 400: 'The request was not accepted. Check the fields and try again.', 429: 'Too many attempts. Please wait a minute and try again.' }[response.status]) || 'Request failed. Please try again.');
     }
     return content;
 }
@@ -52,7 +53,8 @@ function setMode(mode) {
 function showWorkspace() {
     window.scrollTo(0, 0);
     $('auth-view').hidden = true; $('app-view').hidden = false;
-    $('user-name').textContent = state.user.displayName; $('user-email').textContent = state.user.email;
+    $('user-name').textContent = state.user.displayName; $('user-email').textContent = `${state.user.email} · ${state.user.role}`;
+    for (const id of ['add-product', 'add-category', 'add-supplier']) $(id).hidden = !isAdmin();
     $('avatar').textContent = state.user.displayName.slice(0, 1).toUpperCase();
 }
 async function load() {
@@ -80,9 +82,9 @@ function render() {
     $('stat-products').textContent = state.totalProducts; $('stat-categories').textContent = state.categories.length;
     $('stat-suppliers').textContent = state.suppliers.length; $('stat-sales').textContent = state.totalSales;
     $('recent-sales').innerHTML = state.sales.length ? state.sales.slice(0, 4).map(order => `<div class="recent-row"><div><strong>Order #${escapeHtml(order.id.slice(0, 8))}</strong><small>${escapeHtml(date(order.createdAt))}</small></div><strong>${money(order.total)} ₫</strong></div>`).join('') : empty('No sales yet. Your first order starts a new chapter.');
-    $('products-body').innerHTML = state.products.length ? state.products.map(product => `<tr><td><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)}</small></td><td>${escapeHtml(state.categories.find(x => x.id === product.categoryId)?.name || '—')}</td><td>${money(product.price)}</td><td><span class="badge ${product.stock < 5 ? 'low' : ''}">${product.stock} units</span></td><td><div class="row-actions"><button data-action="stock" data-id="${product.id}">Stock</button><button data-action="history" data-id="${product.id}">History</button><button data-action="edit-product" data-id="${product.id}">Edit</button><button class="danger" data-action="delete-product" data-id="${product.id}">Delete</button></div></td></tr>`).join('') : '<tr><td colspan="5">' + empty('No products yet. Add a category, then your first product.') + '</td></tr>';
-    $('categories-list').innerHTML = state.categories.length ? state.categories.map(item => `<div class="record-row"><div><strong>${escapeHtml(item.name)}</strong></div><div class="row-actions"><button data-action="edit-category" data-id="${item.id}">Edit</button><button class="danger" data-action="delete-category" data-id="${item.id}">Delete</button></div></div>`).join('') : empty('Start with a category to organize your products.');
-    $('suppliers-list').innerHTML = state.suppliers.length ? state.suppliers.map(item => `<div class="record-row"><div><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml([item.email, item.phone].filter(Boolean).join(' · ') || 'No contact details')}</p></div><div class="row-actions"><button data-action="edit-supplier" data-id="${item.id}">Edit</button><button class="danger" data-action="delete-supplier" data-id="${item.id}">Delete</button></div></div>`).join('') : empty('Add a supplier to keep your business contacts together.');
+    $('products-body').innerHTML = state.products.length ? state.products.map(product => `<tr><td><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)}</small></td><td>${escapeHtml(state.categories.find(x => x.id === product.categoryId)?.name || '—')}</td><td>${money(product.price)}</td><td><span class="badge ${product.stock < 5 ? 'low' : ''}">${product.stock} units</span></td><td><div class="row-actions">${isAdmin() ? `<button data-action="stock" data-id="${product.id}">Stock</button>` : ''}<button data-action="history" data-id="${product.id}">History</button>${isAdmin() ? `<button data-action="edit-product" data-id="${product.id}">Edit</button>` : ''}${isAdmin() ? `<button class="danger" data-action="delete-product" data-id="${product.id}">Delete</button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="5">' + empty('No products yet.') + '</td></tr>';
+    $('categories-list').innerHTML = state.categories.length ? state.categories.map(item => `<div class="record-row"><div><strong>${escapeHtml(item.name)}</strong></div><div class="row-actions">${isAdmin() ? `<button data-action="edit-category" data-id="${item.id}">Edit</button>` : ''}${isAdmin() ? `<button class="danger" data-action="delete-category" data-id="${item.id}">Delete</button>` : ''}</div></div>`).join('') : empty('No categories yet.');
+    $('suppliers-list').innerHTML = state.suppliers.length ? state.suppliers.map(item => `<div class="record-row"><div><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml([item.email, item.phone].filter(Boolean).join(' · ') || 'No contact details')}</p></div><div class="row-actions">${isAdmin() ? `<button data-action="edit-supplier" data-id="${item.id}">Edit</button>` : ''}${isAdmin() ? `<button class="danger" data-action="delete-supplier" data-id="${item.id}">Delete</button>` : ''}</div></div>`).join('') : empty('No suppliers yet.');
     $('sales-body').innerHTML = state.sales.length ? state.sales.map(order => `<tr><td><strong>#${escapeHtml(order.id.slice(0, 8))}</strong></td><td>${escapeHtml(date(order.createdAt))}</td><td>${order.items.reduce((sum, item) => sum + item.quantity, 0)}</td><td>${money(order.total)}</td><td><div class="row-actions"><button data-action="sale-detail" data-id="${order.id}">View order ↗</button></div></td></tr>`).join('') : '<tr><td colspan="5">' + empty('No orders yet. Create your first sale when stock is ready.') + '</td></tr>';
     $('product-page-info').textContent = `${state.totalProducts} products · Page ${state.page}`;
     $('sale-page-info').textContent = `${state.totalSales} orders · Page ${state.salesPage}`;

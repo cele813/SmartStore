@@ -8,7 +8,8 @@ using Npgsql;
 using SmartStore.Infrastructure;
 using SmartStore.Infrastructure.Auth;
 
-var builder = WebApplication.CreateBuilder(args);
+var grantAdmin = args is ["grant-admin", _];
+var builder = WebApplication.CreateBuilder(grantAdmin ? [] : args);
 builder.Services.AddControllersWithViews(options => options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
@@ -21,7 +22,11 @@ builder.Services.AddIdentityCore<StoreUser>(options =>
     options.Password.RequireNonAlphanumeric = false;
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-}).AddEntityFrameworkStores<StoreDbContext>().AddSignInManager().AddDefaultTokenProviders();
+}).AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<StoreDbContext>()
+    .AddClaimsPrincipalFactory<StorePrincipalFactory>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
 builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme, options =>
 {
@@ -49,6 +54,16 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 var app = builder.Build();
+if (grantAdmin)
+{
+    await using (var scope = app.Services.CreateAsyncScope())
+    {
+        Environment.ExitCode = await AdminGrant.RunAsync(scope.ServiceProvider, args[1]);
+    }
+    await app.DisposeAsync();
+    return;
+}
+
 app.UseExceptionHandler(error => error.Run(async context =>
 {
     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;

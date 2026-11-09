@@ -54,7 +54,7 @@ dotnet run --project src/SmartStore.Api --launch-profile http
 
 Open **http://localhost:5080** and select **Create account**. Use a password with at least eight characters, including uppercase, lowercase, and a number. Registration signs you in automatically; there is no default account or seeded password.
 
-Start by creating a category, add a product, receive stock through **Stock**, then use **Sales → New sale** to record an order. Add supplier details as needed. Values are displayed in VND.
+After granting Admin access as described below, start by creating a category, add a product, receive stock through **Stock**, then use **Sales → New sale** to record an order. Add supplier details as needed. Values are displayed in VND.
 
 - **Web app:** http://localhost:5080
 - **OpenAPI JSON:** http://localhost:5080/openapi/v1.json (Development only)
@@ -64,7 +64,17 @@ You can also set the connection string with `ConnectionStrings__Store`. Keep rea
 
 ## Authentication & API
 
-The application is a **single-store, shared staff workspace**: every registered account can access and manage the same store data. Authentication is required for store endpoints. Registration is open; role-based permissions, invitations, email verification, and password recovery can be added as extensions.
+The application is a **single-store, shared staff workspace**: all accounts work with the same store data. Authentication is required for store endpoints. Registration is open and grants Staff access. Staff can view catalog, inventory history, and orders, and record sales. Admins can also create, edit, and delete catalog records and manually adjust stock.
+
+### Grant admin access
+
+Register and verify that you can sign in to the account you intend to promote. From the repository root, run the following command with that account's email after applying the migrations.
+
+```powershell
+dotnet run --project src/SmartStore.Api --launch-profile http -- grant-admin admin@example.com
+```
+
+The command uses the same database configuration as the web app. Sign out and sign in again after promotion to refresh your session.
 
 The browser uses an HttpOnly session cookie. For API clients, first GET `/api/auth/csrf`, preserve the returned cookies, and send its `token` in the `X-CSRF-TOKEN` header on POST/PUT/DELETE requests. Register at `/api/auth/register` or sign in at `/api/auth/login`; fetch a fresh CSRF token after sign-in/sign-out. `/api/auth/me` returns the current user and POST `/api/auth/logout` ends the session.
 

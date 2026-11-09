@@ -31,7 +31,7 @@ public sealed class AuthController(UserManager<StoreUser> users, SignInManager<S
             return ValidationProblem(ModelState);
         }
         await signIn.SignInAsync(user, isPersistent: false);
-        return StatusCode(StatusCodes.Status201Created, ToResponse(user));
+        return StatusCode(StatusCodes.Status201Created, ToResponse(user, await signIn.CreateUserPrincipalAsync(user)));
     }
 
     [AllowAnonymous, HttpPost("login"), EnableRateLimiting("auth")]
@@ -41,7 +41,7 @@ public sealed class AuthController(UserManager<StoreUser> users, SignInManager<S
         if (user is null) return Unauthorized(new ProblemDetails { Title = "Invalid email or password." });
         var result = await signIn.PasswordSignInAsync(user, request.Password, isPersistent: false, lockoutOnFailure: true);
         if (!result.Succeeded) return Unauthorized(new ProblemDetails { Title = "Invalid email or password, or account temporarily locked." });
-        return Ok(ToResponse(user));
+        return Ok(ToResponse(user, await signIn.CreateUserPrincipalAsync(user)));
     }
 
     [HttpPost("logout")]
@@ -56,8 +56,9 @@ public sealed class AuthController(UserManager<StoreUser> users, SignInManager<S
     {
         Response.Headers.CacheControl = "no-store";
         var user = await users.GetUserAsync(User);
-        return user is null ? Unauthorized() : Ok(ToResponse(user));
+        return user is null ? Unauthorized() : Ok(ToResponse(user, User));
     }
 
-    private static UserResponse ToResponse(StoreUser user) => new(user.Id, user.DisplayName, user.Email!);
+    private static UserResponse ToResponse(StoreUser user, System.Security.Claims.ClaimsPrincipal principal) =>
+        new(user.Id, user.DisplayName, user.Email!, principal.IsInRole(StoreRoles.Admin) ? StoreRoles.Admin : StoreRoles.Staff);
 }

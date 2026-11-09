@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
+using SmartStore.Infrastructure.Auth;
 using Microsoft.EntityFrameworkCore;
 using SmartStore.Application;
 using SmartStore.Domain;
@@ -21,7 +24,22 @@ public class PostgresTests
         await db.Database.MigrateAsync();
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
-        await TestAuth.Register(client);
+        var admin = await TestAuth.Register(client);
+        using var staff = factory.CreateClient();
+        await TestAuth.Register(staff);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync("/api/categories", new CategoryRequest("Forbidden"))).StatusCode);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            if (!await roles.RoleExistsAsync("Admin"))
+                Assert.True((await roles.CreateAsync(new IdentityRole("Admin"))).Succeeded);
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<StoreUser>>();
+            Assert.True((await users.AddToRoleAsync((await users.FindByEmailAsync(admin.Email))!, "Admin")).Succeeded);
+        }
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(admin.Email, admin.Password))).StatusCode);
+        await TestAuth.RefreshCsrf(client);
+        Assert.Equal("Admin", (await client.GetFromJsonAsync<UserResponse>("/api/auth/me"))!.Role);
         var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CategoryRequest($"Test-{Guid.NewGuid():N}"));
         Assert.Equal(HttpStatusCode.Created, categoryResponse.StatusCode);
         var category = (await categoryResponse.Content.ReadFromJsonAsync<Category>())!;
@@ -31,7 +49,8 @@ public class PostgresTests
         var product = (await productResponse.Content.ReadFromJsonAsync<Product>())!;
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/products", request)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/products/{product.Id}/stock-adjustments", new StockRequest(10, "Receipt"))).StatusCode);
-        var saleResponse = await client.PostAsJsonAsync("/api/sales", new SaleRequest([new(product.Id, 3)]));
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync($"/api/products/{product.Id}/stock-adjustments", new StockRequest(1, "Forbidden"))).StatusCode);
+        var saleResponse = await staff.PostAsJsonAsync("/api/sales", new SaleRequest([new(product.Id, 3)]));
         Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
         var order = (await saleResponse.Content.ReadFromJsonAsync<SaleOrder>())!;
         Assert.Equal(75000, order.Total);

@@ -23,6 +23,7 @@ public class AuthTests
         var request = await TestAuth.Register(client);
         var me = await client.GetFromJsonAsync<UserResponse>("/api/auth/me");
         Assert.Equal(request.Email, me!.Email);
+        Assert.Equal("Staff", me.Role);
         var stored = await db.Users.SingleAsync(x => x.Email == request.Email);
         Assert.NotEqual(request.Password, stored.PasswordHash);
         Assert.False(string.IsNullOrWhiteSpace(stored.PasswordHash));
@@ -30,7 +31,7 @@ public class AuthTests
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/register", request with { Email = request.Email.ToUpperInvariant() })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/register", request with { Email = $"weak-{Guid.NewGuid():N}@example.com", Password = "abcdefgh" })).StatusCode);
         client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/categories", new CategoryRequest("CSRF must reject"))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/auth/logout", null)).StatusCode);
         await TestAuth.RefreshCsrf(client);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/auth/logout", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/me")).StatusCode);

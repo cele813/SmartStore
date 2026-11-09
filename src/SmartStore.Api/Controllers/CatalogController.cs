@@ -1,15 +1,17 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartStore.Application;
 using SmartStore.Domain;
 using SmartStore.Infrastructure;
+using SmartStore.Infrastructure.Auth;
 namespace SmartStore.Api.Controllers;
 
 [ApiController, Route("api/categories")]
 public sealed class CategoriesController(StoreDbContext db) : ControllerBase
 {
     [HttpGet] public async Task<IActionResult> List(CancellationToken ct) => Ok(await db.Categories.AsNoTracking().OrderBy(x => x.Name).Take(200).ToListAsync(ct));
-    [HttpPost]
+    [Authorize(Roles = StoreRoles.Admin), HttpPost]
     public async Task<IActionResult> Create(CategoryRequest r, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(r.Name)) return BadRequest();
@@ -24,7 +26,7 @@ public sealed class SuppliersController(StoreDbContext db) : ControllerBase
 {
     [HttpGet] public async Task<IActionResult> List(CancellationToken ct) => Ok(await db.Suppliers.AsNoTracking().OrderBy(x => x.Name).Take(200).ToListAsync(ct));
     [HttpGet("{id:guid}")] public async Task<IActionResult> Get(Guid id, CancellationToken ct) => await db.Suppliers.FindAsync([id], ct) is { } item ? Ok(item) : NotFound();
-    [HttpPost]
+    [Authorize(Roles = StoreRoles.Admin), HttpPost]
     public async Task<IActionResult> Create(SupplierRequest r, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(r.Name)) return BadRequest();
@@ -44,7 +46,7 @@ public sealed class ProductsController(StoreDbContext db) : ControllerBase
         return Ok(new { page, pageSize, total = await query.CountAsync(ct), items = await query.OrderBy(x => x.Name).ThenBy(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct) });
     }
     [HttpGet("{id:guid}")] public async Task<IActionResult> Get(Guid id, CancellationToken ct) => await db.Products.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) is { } item ? Ok(item) : NotFound();
-    [HttpPost]
+    [Authorize(Roles = StoreRoles.Admin), HttpPost]
     public async Task<IActionResult> Create(ProductRequest r, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(r.Sku) || string.IsNullOrWhiteSpace(r.Name)) return BadRequest();
@@ -53,7 +55,7 @@ public sealed class ProductsController(StoreDbContext db) : ControllerBase
         db.Products.Add(entity); await db.SaveChangesAsync(ct);
         return Created($"/api/products/{entity.Id}", entity);
     }
-    [HttpPost("{id:guid}/stock-adjustments")]
+    [Authorize(Roles = StoreRoles.Admin), HttpPost("{id:guid}/stock-adjustments")]
     public async Task<IActionResult> Adjust(Guid id, StockRequest r, CancellationToken ct)
     {
         var product = await db.Products.SingleOrDefaultAsync(x => x.Id == id, ct);
