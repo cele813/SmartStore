@@ -92,6 +92,20 @@ The browser uses an HttpOnly session cookie. For API clients, first GET `/api/au
 
 Local HTTP is supported by the Development launch profile. Other environments require HTTPS for authentication cookies. Sales do not yet use idempotency keys; check the order list before retrying a submission after a timeout.
 
+### JWT for API clients
+
+The web UI uses its Identity cookie and CSRF token. API clients can sign in separately with a JWT. The Development launch profile enables JWT automatically with an in-memory signing key. Tokens issued with this temporary key stop working when SmartStore restarts. If you want local tokens to survive restarts, set a signing key in user secrets and restart SmartStore.
+
+```powershell
+$keyBytes = [byte[]]::new(32)
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($keyBytes)
+dotnet user-secrets set "Jwt:SigningKey" ([Convert]::ToBase64String($keyBytes)) --project src/SmartStore.Api
+```
+
+In Postman, send `POST /api/auth/token` with a JSON body containing `email` and `password`. Copy `accessToken` from the response and use **Authorization → Bearer Token** on requests such as `GET /api/auth/me` or `GET /api/accounts` (Admin only). Successfully authenticated Bearer requests to store APIs do not require a CSRF token. JWTs expire after 15 minutes. Request a new token with your credentials when one expires.
+
+For deployed environments, provide a dedicated Base64 signing key through `Jwt__SigningKey` and use HTTPS. Outside Development, if no signing key is configured, the token endpoint returns `503` and cookie sign-in remains available. API tokens are rejected if the account was deleted, its permissions or security stamp changed, or it is currently locked. Web sign-out clears the browser cookie only.
+
 ## EF Core Migrations
 
 Migrations are applied explicitly, rather than automatically on startup:
