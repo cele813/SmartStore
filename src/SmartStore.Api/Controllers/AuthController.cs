@@ -7,7 +7,7 @@ using SmartStore.Application;
 using SmartStore.Infrastructure.Auth;
 namespace SmartStore.Api.Controllers;
 
-[ApiController, Route("api/auth")]
+[ApiController, AutoValidateAntiforgeryToken, Route("api/auth")]
 public sealed class AuthController(UserManager<StoreUser> users, SignInManager<StoreUser> signIn, IAntiforgery antiforgery) : ControllerBase
 {
     [AllowAnonymous, HttpGet("csrf")]
@@ -42,6 +42,24 @@ public sealed class AuthController(UserManager<StoreUser> users, SignInManager<S
         var result = await signIn.PasswordSignInAsync(user, request.Password, isPersistent: false, lockoutOnFailure: true);
         if (!result.Succeeded) return Unauthorized(new ProblemDetails { Title = "Invalid email or password, or account temporarily locked." });
         return Ok(ToResponse(user, await signIn.CreateUserPrincipalAsync(user)));
+    }
+
+    [AllowAnonymous, IgnoreAntiforgeryToken, HttpPost("token"), EnableRateLimiting("auth")]
+    public async Task<IActionResult> Token(LoginRequest request, [FromServices] ApiTokens tokens)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (!tokens.Enabled)
+            return Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "JWT authentication is not configured.");
+
+        var user = await users.FindByEmailAsync(request.Email.Trim());
+        if (user is null) return Unauthorized(new ProblemDetails { Title = "Invalid email or password." });
+
+        // Capture the stamp before validating the password so a concurrent password change invalidates the token.
+        var stamp = await users.GetSecurityStampAsync(user);
+        var result = await signIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+        if (!result.Succeeded) return Unauthorized(new ProblemDetails { Title = "Invalid email or password, or account temporarily locked." });
+
+        return Ok(tokens.Issue(user, await users.IsInRoleAsync(user, StoreRoles.Admin), stamp));
     }
 
     [HttpPost("logout")]

@@ -1,9 +1,9 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SmartStore.Infrastructure;
@@ -18,7 +18,7 @@ if (seedDemo && !builder.Environment.IsDevelopment())
     Environment.ExitCode = 1;
     return;
 }
-builder.Services.AddControllersWithViews(options => options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
+builder.Services.AddControllersWithViews(options => options.Filters.Add<CookieAntiforgeryFilter>(order: 1000));
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddDbContext<StoreDbContext>(options => options.UseNpgsql(
@@ -35,7 +35,20 @@ builder.Services.AddIdentityCore<StoreUser>(options =>
     .AddClaimsPrincipalFactory<StorePrincipalFactory>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
-builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
+const string storeAuthentication = "StoreAuthentication";
+var authentication = builder.Services.AddAuthentication(storeAuthentication);
+authentication.AddIdentityCookies();
+authentication.AddPolicyScheme(storeAuthentication, null, options =>
+{
+    options.ForwardDefaultSelector = context =>
+        context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? JwtBearerDefaults.AuthenticationScheme
+            : IdentityConstants.ApplicationScheme;
+});
+authentication.AddJwtBearer();
+builder.Services.AddSingleton<ApiTokens>();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<ApiTokens>((options, tokens) => tokens.Configure(options));
 builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme, options =>
 {
     options.Cookie.Name = "SmartStore.Auth";
